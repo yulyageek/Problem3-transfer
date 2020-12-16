@@ -126,6 +126,10 @@ int main(){
 		}
 		free(spread_now);
 		free(spread_before);
+		if ( msgctl(msg_id, IPC_RMID, NULL) == -1){
+				printf("remove queue error\n");
+				exit(errno);
+		}
 		if ( remove(path) == -1){
 				printf("remove file error\n");
 				exit(errno);
