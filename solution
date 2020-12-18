@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -17,13 +18,20 @@ struct mymsg{
 
 int i = 0;
 int msg_id;
-#define N 10
-#define LEN 15
-#define ALL_LEN 16
-#define TIME 50
-#define COEFF 0.05
-#define size 50
+double work = 0;
 
+#define L 10
+#define T 0.1
+
+#define h 1
+#define t 0.01
+
+#define N 16
+#define LEN 10      //L/h
+#define ALL_LEN 11  //LEN+1
+#define TIME 10    //T/t
+#define COEFF 0.005  //t * (0.5 / h)
+#define size 256
 
 struct input{
 	double * before;
@@ -34,7 +42,7 @@ struct input{
 	};
 
 void * function(void * data){
-
+	clock_t start = clock();
 	struct input *spread = (struct input*)data;
 	double *spread_before = spread->before;
 	double *spread_now = spread->now;
@@ -53,6 +61,8 @@ void * function(void * data){
 		printf("send error1\n");
 		exit(errno);
 	}
+	clock_t finish = clock();
+	work += (finish - start);
 	pthread_exit((void *)NULL);
 	}
 			
@@ -66,7 +76,10 @@ int main(){
 	}
 
 	sprintf(path, "%s/for_yulya.txt", path);
-	open(path, O_CREAT);
+	if ( open(path, O_CREAT|0666) == -1){
+		printf("create error\n");
+		exit(errno);
+	}
 	key_t msg_key;
         if ( (msg_key = ftok(path , 0)) == -1){
 		printf("ftok error\n");
@@ -88,9 +101,9 @@ int main(){
 	pthread_t thread_id[N];
 	struct input data[N];
 
-		for (int i = 0; i < LEN; i++)
+		for (int i = 0; i < ALL_LEN; i++)
 			printf("%f ", *(spread_before+i) );
-		printf("\n");	
+		printf("\n");
 		for(int i=0; i < TIME ; i++){
 			for (int j = 0; j < N; j++){
 				data[j].before = spread_before;
@@ -99,7 +112,7 @@ int main(){
 				data[j].left = j*LEN/N + 1;
 				data[j].right = (j+1)*LEN/N;
 				if( pthread_create( &thread_id[j], (pthread_attr_t *)NULL, function , (void*) (&data[j])) != 0) {
-					perror ("create");
+					printf ("create error\n");
 					return errno;
 				}
 			}
@@ -116,14 +129,16 @@ int main(){
 					exit(errno);
 				}
 			}
-			for (int i = 0; i < ALL_LEN; i++){
+			/*for (int i = 0; i < ALL_LEN; i++){
 				*(spread_before+i) = *(spread_now+i);
+			}*/
+			memcpy(spread_before, spread_now, ALL_LEN * sizeof(double));
+			for (int i = 0; i < ALL_LEN; i++){
+				printf("%f ", *(spread_now+i));
 			}
-			for (int i = 0; i < LEN; i++)
-				printf("%f ", *(spread_now+i) );
-		printf("\n");
-
+			printf("\n");
 		}
+		//printf("%f\n", work/N/TIME);
 		free(spread_now);
 		free(spread_before);
 		if ( msgctl(msg_id, IPC_RMID, NULL) == -1){
