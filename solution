@@ -28,7 +28,7 @@ double work = 0;
 
 #define N 16
 #define LEN 10      //L/h
-#define ALL_LEN 11  //LEN+1
+#define ALL_LEN 12  //LEN+2
 #define TIME 10    //T/t
 #define COEFF 0.005  //t * (0.5 / h)
 #define size 256
@@ -42,14 +42,12 @@ struct input{
 	};
 
 void * function(void * data){
-	clock_t start = clock();
 	struct input *spread = (struct input*)data;
 	double *spread_before = spread->before;
 	double *spread_now = spread->now;
 	int n = spread->n;
 	int left = spread->left;
 	int right = spread->right;
-	*spread_now = 1;
 
 	for (int i = left; i <= right; i++){
 		*(spread_now+i) = 0.5 * ( *(spread_before+i+1) + *(spread_before+i-1) ) - COEFF * ( *(spread_before+i+1) -  *(spread_before+i-1) );
@@ -61,8 +59,6 @@ void * function(void * data){
 		printf("send error1\n");
 		exit(errno);
 	}
-	clock_t finish = clock();
-	work += (finish - start);
 	pthread_exit((void *)NULL);
 	}
 			
@@ -104,6 +100,7 @@ int main(){
 		for (int i = 0; i < ALL_LEN; i++)
 			printf("%f ", *(spread_before+i) );
 		printf("\n");
+		clock_t start = clock();
 		for(int i=0; i < TIME ; i++){
 			for (int j = 0; j < N; j++){
 				data[j].before = spread_before;
@@ -129,15 +126,16 @@ int main(){
 					exit(errno);
 				}
 			}
-			/*for (int i = 0; i < ALL_LEN; i++){
-				*(spread_before+i) = *(spread_now+i);
-			}*/
+			*spread_now = 1;
+			*(spread_now + ALL_LEN - 1) = *(spread_now + ALL_LEN - 2);
 			memcpy(spread_before, spread_now, ALL_LEN * sizeof(double));
 			for (int i = 0; i < ALL_LEN; i++){
 				printf("%f ", *(spread_now+i));
 			}
 			printf("\n");
 		}
+		clock_t finish = clock();
+		work += (finish - start);
 		//printf("%f\n", work/N/TIME);
 		free(spread_now);
 		free(spread_before);
